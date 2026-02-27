@@ -1,9 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { ArrowLeft, Send, Sparkles } from 'lucide-react';
+import { ArrowLeft, Send, Sparkles, CheckCircle2, Trophy, Loader2 } from 'lucide-react';
 import { ChatMessage } from '../types';
 import { teachConcept, generateIllustration } from '../services/gemini';
+import { useAuth } from '../context/AuthContext';
 import { motion, AnimatePresence } from 'motion/react';
 import ReactMarkdown from 'react-markdown';
+import { Quiz } from './Quiz';
 
 interface Props {
   conceptId: string;
@@ -18,7 +20,11 @@ export const InteractiveSession: React.FC<Props> = ({ conceptId, conceptLabel, o
   ]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isQuizMode, setIsQuizMode] = useState(false);
+  const [quizQuestions, setQuizQuestions] = useState<any[]>([]);
+  const [quizScore, setQuizScore] = useState<number | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const { token } = useAuth();
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -36,7 +42,7 @@ export const InteractiveSession: React.FC<Props> = ({ conceptId, conceptLabel, o
     setIsLoading(true);
 
     try {
-      const response = await teachConcept(conceptLabel, [...messages, userMsg]);
+      const response = await teachConcept(conceptLabel, [...messages, userMsg], token);
       let imageUrl: string | undefined;
       
       if (response.illustrationPrompt) {
@@ -55,6 +61,84 @@ export const InteractiveSession: React.FC<Props> = ({ conceptId, conceptLabel, o
     }
   };
 
+  const startQuiz = async () => {
+    setIsLoading(true);
+    try {
+      const response = await fetch('/api/quiz/generate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ concept: conceptLabel })
+      });
+      const data = await response.json();
+      setQuizQuestions(data.questions);
+      setIsQuizMode(true);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleQuizComplete = async (score: number) => {
+    setQuizScore(score);
+    try {
+      await fetch('/api/activity/log', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          type: score >= 2 ? 'quiz_pass' : 'quiz_fail',
+          concept_label: conceptLabel,
+          score: score
+        })
+      });
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  if (isQuizMode && quizQuestions.length > 0) {
+    return (
+      <motion.div 
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        className="max-w-2xl mx-auto w-full"
+      >
+        <div className="glass-panel p-8">
+          {quizScore === null ? (
+            <Quiz questions={quizQuestions} onComplete={handleQuizComplete} />
+          ) : (
+            <div className="text-center space-y-6 py-8">
+              <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-octopus-accent/10 mb-4">
+                <Trophy className="w-10 h-10 text-octopus-accent" />
+              </div>
+              <h2 className="text-3xl font-serif italic">Quiz Complete!</h2>
+              <p className="text-xl text-zinc-400">
+                You scored <span className="text-octopus-accent font-bold">{quizScore}</span> out of {quizQuestions.length}
+              </p>
+              <div className="flex gap-4 justify-center pt-4">
+                <button 
+                  onClick={() => { setIsQuizMode(false); setQuizScore(null); }}
+                  className="px-6 py-3 border border-white/10 rounded-xl hover:bg-white/5 transition-colors"
+                >
+                  Back to Chat
+                </button>
+                <button onClick={onComplete} className="octopus-button">
+                  Finish Concept
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      </motion.div>
+    );
+  }
+
   return (
     <motion.div 
       initial={{ opacity: 0, x: 20 }}
@@ -68,8 +152,13 @@ export const InteractiveSession: React.FC<Props> = ({ conceptId, conceptLabel, o
         </button>
         <div className="flex items-center gap-4">
           <span className="text-sm font-mono text-octopus-accent uppercase tracking-widest">Learning: {conceptLabel}</span>
-          <button onClick={onComplete} className="text-xs bg-octopus-accent/10 text-octopus-accent border border-octopus-accent/20 px-3 py-1 rounded-full hover:bg-octopus-accent hover:text-black transition-all">
-            Mark as Understood
+          <button 
+            onClick={startQuiz}
+            disabled={isLoading}
+            className="flex items-center gap-2 text-xs bg-octopus-accent/10 text-octopus-accent border border-octopus-accent/20 px-3 py-1 rounded-full hover:bg-octopus-accent hover:text-black transition-all"
+          >
+            {isLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : <CheckCircle2 className="w-3 h-3" />}
+            Take Quiz
           </button>
         </div>
       </div>

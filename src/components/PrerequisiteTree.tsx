@@ -17,8 +17,8 @@ interface Props {
 }
 
 export const PrerequisiteTree: React.FC<Props> = ({ prerequisites, onToggle, onLearn, onProceed }) => {
-  const allCompleted = prerequisites.every(p => 
-    p.completed && (!p.children || p.children.every(c => c.completed))
+  const allCompleted = Array.isArray(prerequisites) && prerequisites.every(p => 
+    p.completed && (!p.children || (Array.isArray(p.children) && p.children.every(c => c.completed)))
   );
 
   const renderNode = (node: Prerequisite, depth = 0) => (
@@ -55,7 +55,7 @@ export const PrerequisiteTree: React.FC<Props> = ({ prerequisites, onToggle, onL
           </div>
           <p className="text-sm text-zinc-400 mb-4">{node.description}</p>
           
-          {node.children && (
+          {Array.isArray(node.children) && node.children.length > 0 && (
             <div className="mt-2">
               {node.children.map(child => renderNode(child, depth + 1))}
             </div>
@@ -93,7 +93,9 @@ export const PrerequisiteTree: React.FC<Props> = ({ prerequisites, onToggle, onL
       </div>
 
       <div className="glass-panel p-8">
-        {prerequisites.map(p => renderNode(p))}
+        {Array.isArray(prerequisites) ? prerequisites.map(p => renderNode(p)) : (
+          <p className="text-zinc-500 text-center">No prerequisites found.</p>
+        )}
       </div>
     </motion.div>
   );

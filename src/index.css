@@ -12,21 +12,44 @@
   --color-octopus-border: #252525;
 }
 
+:root.light-theme {
+  --color-octopus-bg: #F8F9FA;
+  --color-octopus-accent: #059669;
+  --color-octopus-card: #FFFFFF;
+  --color-octopus-border: #E5E7EB;
+}
+
 @layer base {
   body {
-    @apply bg-octopus-bg text-white font-sans antialiased;
+    @apply bg-octopus-bg text-white font-sans antialiased transition-colors duration-300;
+  }
+  
+  .light-theme body {
+    @apply text-zinc-900;
   }
 }
 
 .glass-panel {
-  @apply bg-octopus-card border border-octopus-border rounded-2xl shadow-2xl backdrop-blur-sm;
+  @apply bg-octopus-card border border-octopus-border rounded-2xl shadow-2xl backdrop-blur-sm transition-all duration-300;
+}
+
+.light-theme .glass-panel {
+  @apply shadow-sm;
 }
 
 .octopus-button {
   @apply px-6 py-3 bg-octopus-accent text-black font-semibold rounded-xl hover:opacity-90 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed;
 }
 
+.light-theme .octopus-button {
+  @apply text-white;
+}
+
 .octopus-input {
   @apply w-full bg-octopus-card border border-octopus-border rounded-xl px-4 py-3 focus:outline-none focus:border-octopus-accent transition-colors;
+}
+
+.light-theme .octopus-input {
+  @apply bg-zinc-50;
 }
 

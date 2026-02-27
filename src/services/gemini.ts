@@ -10,15 +10,18 @@ const getGeminiApiKey = () => {
   return key;
 };
 
-export const analyzeProblem = async (problem: string): Promise<{
+export const analyzeProblem = async (problem: string, token?: string | null, image?: string): Promise<{
   prerequisites: Prerequisite[];
   similarProblem: string;
   similarSolution: SolutionStep[];
 }> => {
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+
   const response = await fetch("/api/analyze", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ problem }),
+    headers,
+    body: JSON.stringify({ problem, image }),
   });
 
   if (!response.ok) {
@@ -39,11 +42,15 @@ export const analyzeProblem = async (problem: string): Promise<{
 
 export const teachConcept = async (
   concept: string, 
-  history: { role: 'user' | 'model', text: string }[]
+  history: { role: 'user' | 'model', text: string }[],
+  token?: string | null
 ): Promise<{ text: string; illustrationPrompt?: string }> => {
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+
   const response = await fetch("/api/teach", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers,
     body: JSON.stringify({ concept, history }),
   });
 

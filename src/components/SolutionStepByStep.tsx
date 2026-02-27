@@ -1,8 +1,10 @@
-import React from 'react';
-import { ArrowLeft, CheckCircle2, Lightbulb } from 'lucide-react';
+import React, { useRef } from 'react';
+import { ArrowLeft, CheckCircle2, Lightbulb, Download } from 'lucide-react';
 import { SolutionStep, Prerequisite } from '../types';
 import { motion } from 'motion/react';
 import ReactMarkdown from 'react-markdown';
+import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
 
 interface Props {
   originalProblem: string;
@@ -13,8 +15,27 @@ interface Props {
 }
 
 export const SolutionStepByStep: React.FC<Props> = ({ originalProblem, similarProblem, steps, prerequisites, onBack }) => {
+  const contentRef = useRef<HTMLDivElement>(null);
+
+  const downloadPDF = async () => {
+    if (!contentRef.current) return;
+    const canvas = await html2canvas(contentRef.current, {
+      scale: 2,
+      useCORS: true,
+      backgroundColor: '#0a0a0a'
+    });
+    const imgData = canvas.toDataURL('image/png');
+    const pdf = new jsPDF('p', 'mm', 'a4');
+    const imgProps = pdf.getImageProperties(imgData);
+    const pdfWidth = pdf.internal.pageSize.getWidth();
+    const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
+    pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+    pdf.save('octopus-solution.pdf');
+  };
+
   const getPrerequisiteLabel = (id: string) => {
     const findLabel = (nodes: Prerequisite[]): string | undefined => {
+      if (!Array.isArray(nodes)) return undefined;
       for (const node of nodes) {
         if (node.id === id) return node.label;
         if (node.children) {
@@ -33,59 +54,72 @@ export const SolutionStepByStep: React.FC<Props> = ({ originalProblem, similarPr
       animate={{ opacity: 1 }}
       className="max-w-4xl mx-auto w-full space-y-8"
     >
-      <button onClick={onBack} className="flex items-center gap-2 text-zinc-400 hover:text-white transition-colors">
-        <ArrowLeft className="w-5 h-5" />
-        Back to Map
-      </button>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="glass-panel p-6 border-octopus-accent/20">
-          <h3 className="text-xs font-mono uppercase tracking-widest text-octopus-accent mb-2">Your Problem</h3>
-          <p className="text-lg font-mono">{originalProblem}</p>
-        </div>
-        <div className="glass-panel p-6 border-blue-500/20">
-          <h3 className="text-xs font-mono uppercase tracking-widest text-blue-400 mb-2">Similar Example</h3>
-          <p className="text-lg font-mono">{similarProblem}</p>
-        </div>
+      <div className="flex items-center justify-between">
+        <button onClick={onBack} className="flex items-center gap-2 text-zinc-400 hover:text-white transition-colors">
+          <ArrowLeft className="w-5 h-5" />
+          Back to Map
+        </button>
+        <button 
+          onClick={downloadPDF}
+          className="flex items-center gap-2 text-octopus-accent hover:text-white transition-colors bg-octopus-accent/10 px-4 py-2 rounded-xl border border-octopus-accent/20"
+        >
+          <Download className="w-4 h-4" />
+          Download PDF
+        </button>
       </div>
 
-      <div className="space-y-6">
-        <h2 className="text-3xl font-serif italic">Step-by-Step Walkthrough</h2>
-        {steps.map((step, i) => (
-          <motion.div
-            key={i}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: i * 0.1 }}
-            className="flex gap-6"
-          >
-            <div className="flex flex-col items-center">
-              <div className="w-10 h-10 rounded-full bg-octopus-accent/10 border border-octopus-accent/20 flex items-center justify-center text-octopus-accent font-mono">
-                {i + 1}
-              </div>
-              {i < steps.length - 1 && <div className="w-px flex-1 bg-octopus-border my-2" />}
-            </div>
-            
-            <div className="flex-1 glass-panel p-6 mb-4">
-              <div className="flex flex-wrap gap-2 mb-4">
-                {step.prerequisiteIds.map(pid => (
-                  <span key={pid} className="inline-flex items-center gap-1 text-[10px] font-mono uppercase tracking-tighter bg-octopus-accent/10 text-octopus-accent border border-octopus-accent/20 px-2 py-0.5 rounded">
-                    <CheckCircle2 className="w-3 h-3" />
-                    {getPrerequisiteLabel(pid)}
-                  </span>
-                ))}
+      <div ref={contentRef} className="space-y-8 p-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="glass-panel p-6 border-octopus-accent/20 bg-octopus-accent/5">
+            <h3 className="text-xs font-mono uppercase tracking-widest text-octopus-accent mb-3">Your Original Problem</h3>
+            <p className="text-xl font-mono leading-relaxed">{originalProblem}</p>
+          </div>
+          <div className="glass-panel p-6 border-blue-500/20 bg-blue-500/5">
+            <h3 className="text-xs font-mono uppercase tracking-widest text-blue-400 mb-3">The Example We're Solving</h3>
+            <p className="text-xl font-mono leading-relaxed">{similarProblem}</p>
+          </div>
+        </div>
+
+        <div className="space-y-4">
+          <h2 className="text-3xl font-serif italic">Step-by-Step Walkthrough</h2>
+          <p className="text-zinc-400">Watch how we solve the similar example using the concepts you just reviewed.</p>
+          
+          {Array.isArray(steps) && steps.map((step, i) => (
+            <motion.div
+              key={i}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: i * 0.1 }}
+              className="flex gap-6"
+            >
+              <div className="flex flex-col items-center">
+                <div className="w-10 h-10 rounded-full bg-octopus-accent/10 border border-octopus-accent/20 flex items-center justify-center text-octopus-accent font-mono">
+                  {i + 1}
+                </div>
+                {i < steps.length - 1 && <div className="w-px flex-1 bg-octopus-border my-2" />}
               </div>
               
-              <div className="text-xl font-mono mb-3 text-octopus-accent">
-                {step.step}
+              <div className="flex-1 glass-panel p-6 mb-4">
+                <div className="flex flex-wrap gap-2 mb-4">
+                  {Array.isArray(step.prerequisiteIds) && step.prerequisiteIds.map(pid => (
+                    <span key={pid} className="inline-flex items-center gap-1 text-[10px] font-mono uppercase tracking-tighter bg-octopus-accent/10 text-octopus-accent border border-octopus-accent/20 px-2 py-0.5 rounded">
+                      <CheckCircle2 className="w-3 h-3" />
+                      {getPrerequisiteLabel(pid)}
+                    </span>
+                  ))}
+                </div>
+                
+                <div className="text-2xl font-mono mb-4 text-white bg-white/5 p-4 rounded-lg border border-white/10">
+                  {step.step}
+                </div>
+                
+                <div className="prose prose-invert prose-sm max-w-none text-zinc-300 leading-relaxed">
+                  <ReactMarkdown>{step.explanation}</ReactMarkdown>
+                </div>
               </div>
-              
-              <div className="prose prose-invert prose-sm max-w-none text-zinc-400">
-                <ReactMarkdown>{step.explanation}</ReactMarkdown>
-              </div>
-            </div>
-          </motion.div>
-        ))}
+            </motion.div>
+          ))}
+        </div>
       </div>
 
       <div className="glass-panel p-8 bg-octopus-accent/5 border-octopus-accent/20 text-center">
