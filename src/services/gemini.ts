@@ -22,8 +22,16 @@ export const analyzeProblem = async (problem: string): Promise<{
   });
 
   if (!response.ok) {
-    const err = await response.json();
-    throw new Error(err.error || "Failed to analyze problem via Groq");
+    let errorMessage = "Failed to analyze problem";
+    try {
+      const err = await response.json();
+      errorMessage = err.error || errorMessage;
+    } catch (e) {
+      const text = await response.text();
+      console.error("Non-JSON error response:", text);
+      errorMessage = `Server Error (${response.status}): ${text.slice(0, 100)}...`;
+    }
+    throw new Error(errorMessage);
   }
 
   return response.json();
@@ -40,8 +48,16 @@ export const teachConcept = async (
   });
 
   if (!response.ok) {
-    const err = await response.json();
-    throw new Error(err.error || "Failed to teach concept via Groq");
+    let errorMessage = "Failed to teach concept";
+    try {
+      const err = await response.json();
+      errorMessage = err.error || errorMessage;
+    } catch (e) {
+      const text = await response.text();
+      console.error("Non-JSON error response:", text);
+      errorMessage = `Server Error (${response.status}): ${text.slice(0, 100)}...`;
+    }
+    throw new Error(errorMessage);
   }
 
   return response.json();
