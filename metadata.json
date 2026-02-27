@@ -1,5 +1,5 @@
 {
-  "name": "Octopus",
-  "description": "A non-traditional math learning platform that breaks down complex problems into a tree of prerequisites, teaching you the fundamental concepts before guiding you through similar solutions.",
+  "name": "Octopus Math Tutor",
+  "description": "Octopus is an AI-powered math tutor that provides personalized learning paths, problem of the week challenges, and direct messaging between teachers and students. It breaks down complex problems into prerequisites, teaches fundamental concepts, and guides users through similar solutions.",
   "requestFramePermissions": []
 }

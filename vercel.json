@@ -1,0 +1,67 @@
+{
+  "version": 2,
+  "builds": [
+    {
+      "src": "api/**/*.ts",
+      "use": "@vercel/node"
+    },
+    {
+      "src": "index.html",
+      "use": "@vercel/static"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/api/auth/signup",
+      "dest": "api/auth/signup.ts"
+    },
+    {
+      "src": "/api/auth/login",
+      "dest": "api/auth/login.ts"
+    },
+    {
+      "src": "/api/analyze",
+      "dest": "api/analyze.ts"
+    },
+    {
+      "src": "/api/teach",
+      "dest": "api/teach.ts"
+    },
+    {
+      "src": "/api/quiz/generate",
+      "dest": "api/quiz/generate.ts"
+    },
+    {
+      "src": "/api/teacher/students",
+      "dest": "api/teacher/students.ts"
+    },
+    {
+      "src": "/api/teacher/student/(.*)",
+      "dest": "api/teacher/student/[id].ts"
+    },
+    {
+      "src": "/api/teacher/summary",
+      "dest": "api/teacher/summary.ts"
+    },
+    {
+      "src": "/api/teacher/problem-of-the-week",
+      "dest": "api/teacher/problem-of-the-week.ts"
+    },
+    {
+      "src": "/api/messages/send",
+      "dest": "api/messages/send.ts"
+    },
+    {
+      "src": "/api/messages/unread/count",
+      "dest": "api/messages/unread/count.ts"
+    },
+    {
+      "src": "/api/messages/(.*)",
+      "dest": "api/messages/[otherUserId].ts"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "index.html"
+    }
+  ]
+}
