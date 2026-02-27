@@ -41,7 +41,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         data: {
           name,
           role,
-          teacher_code: teacherCode,
+          teacher_code: role === 'student' ? teacherCode : undefined,
         },
       },
     });
