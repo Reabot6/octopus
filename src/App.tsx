@@ -29,7 +29,7 @@ export default function App() {
   const [showChat, setShowChat] = useState(false);
 
   useEffect(() => {
-    if (isAuthenticated && user?.role === 'student') {
+        if (isAuthenticated && user?.user_metadata.role === 'student') {
       fetchPow();
       fetchUnreadCount();
       const interval = setInterval(fetchUnreadCount, 10000);
@@ -181,7 +181,7 @@ export default function App() {
       
       {/* Problem of the Week Notification */}
       <AnimatePresence>
-        {showPow && pow && user?.role === 'student' && (
+        {showPow && pow && user?.user_metadata.role === 'student' && (
           <motion.div
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -216,7 +216,7 @@ export default function App() {
       </AnimatePresence>
 
       {/* Student Chat Toggle */}
-      {isAuthenticated && user?.role === 'student' && (
+      {isAuthenticated && user?.user_metadata.role === 'student' && (
         <div className="fixed bottom-6 right-6 z-[100]">
           <AnimatePresence>
             {showChat && user.user_metadata.teacher_id && (
@@ -260,7 +260,7 @@ export default function App() {
       <AnimatePresence mode="wait">
         {!isAuthenticated ? (
           <Auth key="auth" />
-        ) : user?.role === 'teacher' ? (
+        ) : user?.user_metadata.role === 'teacher' ? (
           <TeacherDashboard key="teacher" />
         ) : (
           <>

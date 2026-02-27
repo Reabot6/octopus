@@ -12,7 +12,8 @@ export const Auth: React.FC = () => {
   const [teacherCode, setTeacherCode] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  
+  const [message, setMessage] = useState<string | null>(null);
+
   const { login, signup } = useAuth();
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -25,6 +26,7 @@ export const Auth: React.FC = () => {
         await login(email, password);
       } else {
         await signup(email, password, name, role, teacherCode);
+        setMessage('Please check your email to confirm your account.');
       }
     } catch (err: any) {
       setError(err.message);
@@ -129,6 +131,7 @@ export const Auth: React.FC = () => {
               </>
             )}
           </button>
+          {message && <p className="text-green-400 text-sm text-center mt-4">{message}</p>}
         </form>
 
         <div className="mt-6 text-center">

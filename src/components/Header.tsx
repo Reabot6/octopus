@@ -15,11 +15,11 @@ export const Header: React.FC = () => {
         <div className="flex items-center gap-8">
           <img src="/logo.png" alt="Octopus Logo" className="h-8" />
           
-          {user.user_metadata.role === 'student' && user.user_metadata.teacherName && (
+          {user.user_metadata.role === 'student' && user.user_metadata.teacher_name && (
             <div className="hidden md:flex items-center gap-2 px-3 py-1 bg-octopus-accent/10 border border-octopus-accent/20 rounded-full">
               <GraduationCap className="w-4 h-4 text-octopus-accent" />
               <span className="text-xs font-mono text-octopus-accent uppercase tracking-widest">
-                Classroom: {user.user_metadata.teacherName}
+                Classroom: {user.user_metadata.teacher_name}
               </span>
             </div>
           )}

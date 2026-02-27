@@ -4,7 +4,7 @@ import { Prerequisite, SolutionStep } from "../types";
 let groqClient: Groq | null = null;
 const getGroqClient = () => {
   if (!groqClient) {
-    const apiKey = process.env.GROQ_API_KEY;
+    const apiKey = import.meta.env.VITE_GROQ_API_KEY;
     if (!apiKey || apiKey.trim() === "") {
       throw new Error("GROQ_API_KEY is missing. Please add your Groq API key to the Secrets panel in AI Studio.");
     }
@@ -84,18 +84,23 @@ export const teachConcept = async (
   history: { role: 'user' | 'model', text: string }[],
 ): Promise<{ text: string; illustrationPrompt?: string }> => {
   const groq = getGroqClient();
+  const messages: Groq.Chat.Completions.ChatCompletionMessageParam[] = [
+    {
+      role: "system",
+      content: "You are a helpful math teacher. Use real-world examples and ask for input. Return JSON with 'text' and optional 'illustrationPrompt'.",
+    },
+    ...history.map((h) => ({
+      role: (h.role === 'model' ? 'assistant' : 'user') as 'assistant' | 'user',
+      content: h.text,
+    })),
+    {
+      role: "user",
+      content: `Explain the concept: "${concept}". Keep it interactive.`,
+    },
+  ];
+
   const completion = await groq.chat.completions.create({
-    messages: [
-      {
-        role: "system",
-        content: "You are a helpful math teacher. Use real-world examples and ask for input. Return JSON with 'text' and optional 'illustrationPrompt'.",
-      },
-      ...history.map((h: any) => ({ role: h.role === 'model' ? 'assistant' : 'user', content: h.text })),
-      {
-        role: "user",
-        content: `Explain the concept: "${concept}". Keep it interactive.`,
-      },
-    ],
+    messages,
     model: "llama-3.3-70b-versatile",
     response_format: { type: "json_object" },
   });

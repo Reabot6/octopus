@@ -193,15 +193,6 @@ export const InteractiveSession: React.FC<Props> = ({ conceptId, conceptLabel, o
                 <div className="prose prose-invert prose-sm max-w-none">
                   <ReactMarkdown>{msg.text}</ReactMarkdown>
                 </div>
-                {msg.image && (
-                  <motion.div 
-                    initial={{ opacity: 0, scale: 0.95 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    className="mt-4 rounded-xl overflow-hidden border border-white/10"
-                  >
-                    <img src={msg.image} alt="Illustration" className="w-full h-auto" referrerPolicy="no-referrer" />
-                  </motion.div>
-                )}
               </div>
             </motion.div>
           ))}
