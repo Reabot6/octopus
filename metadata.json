@@ -1,0 +1,5 @@
+{
+  "name": "Octopus",
+  "description": "A non-traditional math learning platform that breaks down complex problems into a tree of prerequisites, teaching you the fundamental concepts before guiding you through similar solutions.",
+  "requestFramePermissions": []
+}

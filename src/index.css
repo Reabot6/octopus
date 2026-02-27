@@ -1,0 +1,32 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300;1,400&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+  --font-serif: "Cormorant Garamond", serif;
+  
+  --color-octopus-bg: #0a0a0a;
+  --color-octopus-accent: #00ff88;
+  --color-octopus-card: #151515;
+  --color-octopus-border: #252525;
+}
+
+@layer base {
+  body {
+    @apply bg-octopus-bg text-white font-sans antialiased;
+  }
+}
+
+.glass-panel {
+  @apply bg-octopus-card border border-octopus-border rounded-2xl shadow-2xl backdrop-blur-sm;
+}
+
+.octopus-button {
+  @apply px-6 py-3 bg-octopus-accent text-black font-semibold rounded-xl hover:opacity-90 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed;
+}
+
+.octopus-input {
+  @apply w-full bg-octopus-card border border-octopus-border rounded-xl px-4 py-3 focus:outline-none focus:border-octopus-accent transition-colors;
+}
+
