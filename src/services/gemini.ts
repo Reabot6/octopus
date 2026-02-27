@@ -110,29 +110,4 @@ export const teachConcept = async (
   return data;
 };
 
-export const generateIllustration = async (prompt: string): Promise<string | undefined> => {
-  const key = getGeminiApiKey();
-  if (!key) {
-    console.warn("Gemini API Key missing, skipping illustration.");
-    return undefined;
-  }
 
-  try {
-    const ai = new GoogleGenAI({ apiKey: key });
-    const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash-image',
-      contents: {
-        parts: [{ text: `A clean, educational mathematical illustration of: ${prompt}. Minimalist style, white background, clear labels.` }],
-      },
-    });
-
-    for (const part of response.candidates?.[0]?.content?.parts || []) {
-      if (part.inlineData) {
-        return `data:image/png;base64,${part.inlineData.data}`;
-      }
-    }
-  } catch (error) {
-    console.error("Gemini generateIllustration error:", error);
-  }
-  return undefined;
-};

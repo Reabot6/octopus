@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { ArrowLeft, Send, Sparkles, CheckCircle2, Trophy, Loader2 } from 'lucide-react';
 import { ChatMessage } from '../types';
-import { teachConcept, generateIllustration, analyzeProblem } from '../services/gemini';
+import { teachConcept, analyzeProblem } from '../services/gemini';
 import { supabase } from '../lib/supabaseClient';
 import Groq from 'groq-sdk';
 import { useAuth } from '../context/AuthContext';
@@ -44,17 +44,11 @@ export const InteractiveSession: React.FC<Props> = ({ conceptId, conceptLabel, o
     setIsLoading(true);
 
     try {
-      const response = await teachConcept(conceptLabel, [...messages, userMsg], token);
-      let imageUrl: string | undefined;
-      
-      if (response.illustrationPrompt) {
-        imageUrl = await generateIllustration(response.illustrationPrompt);
-      }
+      const response = await teachConcept(conceptLabel, [...messages, userMsg]);
 
       setMessages(prev => [...prev, { 
         role: 'model', 
         text: response.text,
-        image: imageUrl
       }]);
     } catch (error) {
       console.error(error);

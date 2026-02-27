@@ -219,7 +219,7 @@ export default function App() {
       {isAuthenticated && user?.role === 'student' && (
         <div className="fixed bottom-6 right-6 z-[100]">
           <AnimatePresence>
-            {showChat && user.teacherId && (
+            {showChat && user.user_metadata.teacher_id && (
               <motion.div
                 initial={{ opacity: 0, scale: 0.9, y: 20 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -238,7 +238,7 @@ export default function App() {
                   </button>
                 </div>
                 <div className="flex-1 overflow-hidden">
-                  <Chat otherUserId={user.teacherId} otherUserName="Teacher" />
+                  <Chat otherUserId={user.user_metadata.teacher_id} otherUserName="Teacher" />
                 </div>
               </motion.div>
             )}
