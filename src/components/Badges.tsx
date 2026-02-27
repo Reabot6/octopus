@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { motion } from 'motion/react';
 import { Trophy, Shield, Zap, Triangle, Star } from 'lucide-react';
+import { supabase } from '../lib/supabaseClient';
 
 interface Badge {
   id: number;
@@ -20,23 +21,28 @@ const IconMap: Record<string, any> = {
 };
 
 export const Badges: React.FC = () => {
-  const { token } = useAuth();
+  const { user } = useAuth();
   const [badges, setBadges] = useState<Badge[]>([]);
 
   useEffect(() => {
     const fetchBadges = async () => {
+      if (!user) return;
       try {
-        const response = await fetch('/api/user/badges', {
-          headers: { 'Authorization': `Bearer ${token}` }
-        });
-        const data = await response.json();
-        setBadges(data);
+        const { data, error } = await supabase
+          .from('user_badges')
+          .select('badges(*)')
+          .eq('user_id', user.id);
+
+        if (error) throw error;
+        
+        const earnedBadges = data.map((item: any) => ({ ...item.badges, earned_at: item.created_at }));
+        setBadges(earnedBadges);
       } catch (err) {
         console.error(err);
       }
     };
     fetchBadges();
-  }, [token]);
+  }, [user]);
 
   if (badges.length === 0) return null;
 

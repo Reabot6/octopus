@@ -12,10 +12,11 @@ import { Sparkles, MessageSquare, Bell, X, Copy, Check } from 'lucide-react';
 import { AppState, MathProblem, Prerequisite } from './types';
 import { analyzeProblem } from './services/gemini';
 import { useAuth } from './context/AuthContext';
+import { supabase } from './lib/supabaseClient';
 import { motion, AnimatePresence } from 'motion/react';
 
 export default function App() {
-  const { isAuthenticated, user, token } = useAuth();
+  const { isAuthenticated, user } = useAuth();
   const [state, setState] = useState<AppState>('input');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -37,13 +38,16 @@ export default function App() {
   }, [isAuthenticated, user]);
 
   const fetchPow = async () => {
+    if (!user) return;
     try {
-      const res = await fetch('/api/student/problem-of-the-week', {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      const data = await res.json();
-      if (data.problem) {
-        setPow(data.problem);
+      const { data, error } = await supabase
+        .from('problem_of_the_week')
+        .select('problem_text')
+        .eq('teacher_id', user.user_metadata.teacher_id)
+        .single();
+      if (error && error.code !== 'PGRST116') throw error;
+      if (data?.problem_text) {
+        setPow(data.problem_text);
         setShowPow(true);
       }
     } catch (err) {
@@ -52,12 +56,16 @@ export default function App() {
   };
 
   const fetchUnreadCount = async () => {
+    if (!user) return;
     try {
-      const res = await fetch('/api/messages/unread/count', {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      const data = await res.json();
-      setUnreadCount(data.count);
+      const { count, error } = await supabase
+        .from('messages')
+        .select('*', { count: 'exact', head: true })
+        .eq('receiver_id', user.id)
+        .eq('is_read', false);
+
+      if (error) throw error;
+      setUnreadCount(count || 0);
     } catch (err) {
       console.error(err);
     }
@@ -75,7 +83,7 @@ export default function App() {
     setIsLoading(true);
     setError(null);
     try {
-      const result = await analyzeProblem(input, token, image);
+      const result = await analyzeProblem(input, image);
       const prerequisites = Array.isArray(result.prerequisites) ? result.prerequisites : [];
       
       if (prerequisites.length === 0) {
@@ -130,23 +138,21 @@ export default function App() {
   };
 
   const handleCompleteConcept = async () => {
-    if (activeConceptId) {
+    if (activeConceptId && user) {
       const label = getActiveConceptLabel();
       handleTogglePrerequisite(activeConceptId);
       
-      if (token) {
-        try {
-          await fetch('/api/activity/complete', {
-            method: 'POST',
-            headers: { 
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${token}`
-            },
-            body: JSON.stringify({ conceptLabel: label })
-          });
-        } catch (e) {
-          console.error("Failed to log completion", e);
-        }
+      try {
+        await supabase.from('student_activities').insert([
+          {
+            student_id: user.id,
+            type: 'concept_completion',
+            concept_label: label,
+            duration_seconds: 0, // You might want to calculate this
+          },
+        ]);
+      } catch (e) {
+        console.error("Failed to log completion", e);
       }
     }
     setState('tree');

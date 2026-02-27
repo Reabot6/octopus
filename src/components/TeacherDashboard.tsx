@@ -4,9 +4,10 @@ import { motion, AnimatePresence } from 'motion/react';
 import { Users, Clock, Brain, ChevronRight, ArrowLeft, Search, Calendar, Sparkles, BarChart3, AlertTriangle, MessageSquare, Send } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { Chat } from './Chat';
+import { supabase } from '../lib/supabaseClient';
 
 interface Student {
-  id: number;
+  id: string;
   name: string;
   email: string;
   created_at: string;
@@ -29,7 +30,7 @@ interface HeatmapItem {
 }
 
 export const TeacherDashboard: React.FC = () => {
-  const { token, user } = useAuth();
+  const { user } = useAuth();
   const [students, setStudents] = useState<Student[]>([]);
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
   const [activities, setActivities] = useState<Activity[]>([]);
@@ -42,23 +43,58 @@ export const TeacherDashboard: React.FC = () => {
 
   useEffect(() => {
     fetchInitialData();
-  }, []);
+  }, [user]);
 
   const fetchInitialData = async () => {
+    if (!user) return;
     try {
-      const [studentsRes, heatmapRes, summaryRes, powRes] = await Promise.all([
-        fetch('/api/teacher/students', { headers: { Authorization: `Bearer ${token}` } }),
-        fetch('/api/teacher/heatmap', { headers: { Authorization: `Bearer ${token}` } }),
-        fetch('/api/teacher/summary', { headers: { Authorization: `Bearer ${token}` } }),
-        fetch('/api/student/problem-of-the-week', { headers: { Authorization: `Bearer ${token}` } })
-      ]);
+      const { data: studentsData, error: studentsError } = await supabase
+        .from('users')
+        .select('id, name, email, created_at')
+        .eq('role', 'student')
+        .eq('teacher_id', user.id);
+      if (studentsError) throw studentsError;
+      setStudents(studentsData || []);
+
+      // Fetch heatmap data (this is a complex query, so we'll use an RPC function in a real app)
+      // For now, we'll just fetch all activities and process them on the client
+      const { data: allActivities, error: allActivitiesError } = await supabase
+        .from('student_activities')
+        .select('concept_label, score')
+        .in('student_id', studentsData.map(s => s.id));
+      if (allActivitiesError) throw allActivitiesError;
       
-      setStudents(await studentsRes.json());
-      setHeatmap(await heatmapRes.json());
-      const summaryData = await summaryRes.json();
-      setSummary(summaryData.summary);
-      const powData = await powRes.json();
-      setPow(powData.problem || '');
+      const heatmapData = allActivities.reduce((acc, activity) => {
+        if (!activity.concept_label) return acc;
+        const existing = acc.find(item => item.concept_label === activity.concept_label);
+        if (existing) {
+          existing.total_attempts++;
+          if (activity.score !== null && activity.score < 70) {
+            existing.failures++;
+          }
+        } else {
+          acc.push({
+            concept_label: activity.concept_label,
+            total_attempts: 1,
+            failures: activity.score !== null && activity.score < 70 ? 1 : 0,
+          });
+        }
+        return acc;
+      }, [] as HeatmapItem[]);
+      setHeatmap(heatmapData);
+
+      // Fetch summary (this would also be a good candidate for a serverless function)
+      // For now, we'll just show a placeholder
+      setSummary('Insights are being generated. Check back soon!');
+
+      const { data: powData, error: powError } = await supabase
+        .from('problem_of_the_week')
+        .select('problem_text')
+        .eq('teacher_id', user.id)
+        .single();
+      if (powError && powError.code !== 'PGRST116') throw powError;
+      setPow(powData?.problem_text || '');
+
     } catch (err) {
       console.error(err);
     } finally {
@@ -67,16 +103,13 @@ export const TeacherDashboard: React.FC = () => {
   };
 
   const handleSavePow = async () => {
+    if (!user) return;
     setIsSavingPow(true);
     try {
-      await fetch('/api/teacher/problem-of-the-week', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({ problemText: pow })
-      });
+      const { error } = await supabase
+        .from('problem_of_the_week')
+        .upsert({ teacher_id: user.id, problem_text: pow, updated_at: new Date().toISOString() }, { onConflict: 'teacher_id' });
+      if (error) throw error;
     } catch (err) {
       console.error(err);
     } finally {
@@ -87,12 +120,13 @@ export const TeacherDashboard: React.FC = () => {
   const fetchStudentDetail = async (student: Student) => {
     setIsLoading(true);
     try {
-      const res = await fetch(`/api/teacher/student/${student.id}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      const data = await res.json();
+      const { data, error } = await supabase
+        .from('student_activities')
+        .select('*')
+        .eq('student_id', student.id);
+      if (error) throw error;
       setSelectedStudent(student);
-      setActivities(data.activities);
+      setActivities(data || []);
       setActiveTab('activity');
     } catch (err) {
       console.error(err);
@@ -118,7 +152,7 @@ export const TeacherDashboard: React.FC = () => {
             <Users className="w-4 h-4" />
             <span>{students.length} Students linked</span>
             <span className="mx-2">•</span>
-            <span className="font-mono text-octopus-accent">Code: {user?.teacherCode}</span>
+            <span className="font-mono text-octopus-accent">Code: {user?.user_metadata.teacher_code}</span>
           </div>
         </div>
       </div>

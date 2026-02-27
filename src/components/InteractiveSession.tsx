@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { ArrowLeft, Send, Sparkles, CheckCircle2, Trophy, Loader2 } from 'lucide-react';
 import { ChatMessage } from '../types';
-import { teachConcept, generateIllustration } from '../services/gemini';
+import { teachConcept, generateIllustration, analyzeProblem } from '../services/gemini';
+import { supabase } from '../lib/supabaseClient';
+import Groq from 'groq-sdk';
 import { useAuth } from '../context/AuthContext';
 import { motion, AnimatePresence } from 'motion/react';
 import ReactMarkdown from 'react-markdown';
@@ -24,7 +26,7 @@ export const InteractiveSession: React.FC<Props> = ({ conceptId, conceptLabel, o
   const [quizQuestions, setQuizQuestions] = useState<any[]>([]);
   const [quizScore, setQuizScore] = useState<number | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
-  const { token } = useAuth();
+  const { user } = useAuth();
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -64,15 +66,34 @@ export const InteractiveSession: React.FC<Props> = ({ conceptId, conceptLabel, o
   const startQuiz = async () => {
     setIsLoading(true);
     try {
-      const response = await fetch('/api/quiz/generate', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({ concept: conceptLabel })
+      const groq = new Groq({ apiKey: process.env.GROQ_API_KEY, dangerouslyAllowBrowser: true });
+      const completion = await groq.chat.completions.create({
+        messages: [
+          {
+            role: "system",
+            content: "You are a math teacher. Generate 3 multiple-choice questions to test understanding of a concept. Return JSON.",
+          },
+          {
+            role: "user",
+            content: `Generate a quiz for the concept: "${conceptLabel}". 
+            Return JSON schema:
+            {
+              "questions": [
+                {
+                  "question": "string",
+                  "options": ["string", "string", "string", "string"],
+                  "correctIndex": number,
+                  "explanation": "string"
+                }
+              ]
+            }`,
+          },
+        ],
+        model: "llama-3.3-70b-versatile",
+        response_format: { type: "json_object" },
       });
-      const data = await response.json();
+      const content = completion.choices[0]?.message?.content;
+      const data = JSON.parse(content || "{}");
       setQuizQuestions(data.questions);
       setIsQuizMode(true);
     } catch (err) {
@@ -84,19 +105,17 @@ export const InteractiveSession: React.FC<Props> = ({ conceptId, conceptLabel, o
 
   const handleQuizComplete = async (score: number) => {
     setQuizScore(score);
+    if (!user) return;
     try {
-      await fetch('/api/activity/log', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({
+      await supabase.from('student_activities').insert([
+        {
+          student_id: user.id,
           type: score >= 2 ? 'quiz_pass' : 'quiz_fail',
           concept_label: conceptLabel,
-          score: score
-        })
-      });
+          score: score,
+          duration_seconds: 0, // You might want to calculate this
+        },
+      ]);
     } catch (err) {
       console.error(err);
     }

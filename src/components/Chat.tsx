@@ -1,23 +1,23 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { Send, User } from 'lucide-react';
-import { motion } from 'motion/react';
+import { Send } from 'lucide-react';
+import { supabase } from '../lib/supabaseClient';
 
 interface Message {
   id: number;
-  sender_id: number;
-  receiver_id: number;
+  sender_id: string;
+  receiver_id: string;
   content: string;
   created_at: string;
 }
 
 interface ChatProps {
-  otherUserId: number;
+  otherUserId: string;
   otherUserName: string;
 }
 
 export const Chat: React.FC<ChatProps> = ({ otherUserId, otherUserName }) => {
-  const { token, user } = useAuth();
+  const { user } = useAuth();
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -25,9 +25,24 @@ export const Chat: React.FC<ChatProps> = ({ otherUserId, otherUserName }) => {
 
   useEffect(() => {
     fetchMessages();
-    const interval = setInterval(fetchMessages, 5000); // Poll every 5s
-    return () => clearInterval(interval);
-  }, [otherUserId]);
+
+    const subscription = supabase
+      .channel(`messages:${user?.id}:${otherUserId}`)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, (payload) => {
+        const newMessage = payload.new as Message;
+        if (
+          (newMessage.sender_id === user?.id && newMessage.receiver_id === otherUserId) ||
+          (newMessage.sender_id === otherUserId && newMessage.receiver_id === user?.id)
+        ) {
+          setMessages((prevMessages) => [...prevMessages, newMessage]);
+        }
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(subscription);
+    };
+  }, [otherUserId, user?.id]);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -36,12 +51,24 @@ export const Chat: React.FC<ChatProps> = ({ otherUserId, otherUserName }) => {
   }, [messages]);
 
   const fetchMessages = async () => {
+    if (!user) return;
     try {
-      const response = await fetch(`/api/messages/${otherUserId}`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      const data = await response.json();
-      setMessages(data);
+      const { data, error } = await supabase
+        .from('messages')
+        .select('*')
+        .or(`(sender_id.eq.${user.id},and(receiver_id.eq.${otherUserId})),(sender_id.eq.${otherUserId},and(receiver_id.eq.${user.id}))`)
+        .order('created_at', { ascending: true });
+
+      if (error) throw error;
+      setMessages(data || []);
+
+      // Mark messages as read
+      await supabase
+        .from('messages')
+        .update({ is_read: true })
+        .eq('receiver_id', user.id)
+        .eq('sender_id', otherUserId);
+
     } catch (err) {
       console.error(err);
     }
@@ -49,23 +76,16 @@ export const Chat: React.FC<ChatProps> = ({ otherUserId, otherUserName }) => {
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newMessage.trim() || isLoading) return;
+    if (!newMessage.trim() || isLoading || !user) return;
 
     setIsLoading(true);
     try {
-      const response = await fetch('/api/messages/send', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({ receiverId: otherUserId, content: newMessage })
-      });
-      
-      if (response.ok) {
-        setNewMessage('');
-        fetchMessages();
-      }
+      const { error } = await supabase.from('messages').insert([
+        { sender_id: user.id, receiver_id: otherUserId, content: newMessage },
+      ]);
+
+      if (error) throw error;
+      setNewMessage('');
     } catch (err) {
       console.error(err);
     } finally {
