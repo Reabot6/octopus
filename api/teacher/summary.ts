@@ -1,6 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import jwt from 'jsonwebtoken';
 import Groq from 'groq-sdk';
+import { supabase } from '../../src/lib/supabaseClient';
 
 const JWT_SECRET = process.env.JWT_SECRET || "octopus-secret-key-123";
 
@@ -38,20 +39,27 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return new Promise<void>(resolve => {
       authenticate(req, res, async () => {
         try {
-          // Mock students data
-          const students = [
-            { id: 'student-1', name: 'Alice Smith' },
-            { id: 'student-2', name: 'Bob Johnson' },
-          ];
+          const teacherId = (req as any).user.id;
+
+          const { data: students, error: studentsError } = await supabase
+            .from('users')
+            .select('id, name')
+            .eq('role', 'student')
+            .eq('teacher_id', teacherId);
+
+          if (studentsError) throw studentsError;
 
           if (students.length === 0) return res.status(200).json({ summary: "You haven't linked any students yet. Share your teacher code to get started!" });
 
-          // Mock recent activity data
-          const recentActivity = [
-            { name: 'Alice Smith', type: 'quiz_pass', concept_label: 'Algebra Basics', created_at: '2023-03-01T14:00:00Z', score: 90 },
-            { name: 'Bob Johnson', type: 'complete', concept_label: 'Linear Equations', created_at: '2023-03-05T16:00:00Z', score: null },
-            { name: 'Alice Smith', type: 'analyze', concept_label: null, created_at: '2023-03-07T10:00:00Z', score: null },
-          ];
+          const studentIds = students.map(s => s.id);
+          const { data: recentActivity, error: activityError } = await supabase
+            .from('student_activities')
+            .select('*')
+            .in('student_id', studentIds)
+            .order('created_at', { ascending: false })
+            .limit(20);
+
+          if (activityError) throw activityError;
 
           const groq = getGroqClient();
           const completion = await groq.chat.completions.create({

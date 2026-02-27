@@ -1,5 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import jwt from 'jsonwebtoken';
+import { supabase } from '../../../src/lib/supabaseClient';
 
 const JWT_SECRET = process.env.JWT_SECRET || "octopus-secret-key-123";
 
@@ -23,20 +24,30 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       authenticate(req, res, async () => {
         if ((req as any).user.role !== 'teacher') return res.status(403).json({ error: "Forbidden" });
         const { id } = req.query; // Vercel uses req.query for dynamic routes
+        const teacherId = (req as any).user.id;
         
         try {
-          // Mock student data
-          const mockStudent = { id: 'student-1', name: 'Alice Smith', email: 'alice@example.com', created_at: '2023-01-15T10:00:00Z', teacher_id: 'mock-teacher-id' };
-          const mockActivities = [
-            { id: 'act-1', user_id: 'student-1', type: 'quiz_pass', concept_label: 'Algebra Basics', created_at: '2023-03-01T14:00:00Z', score: 90 },
-            { id: 'act-2', user_id: 'student-1', type: 'complete', concept_label: 'Linear Equations', created_at: '2023-03-05T16:00:00Z', score: null },
-          ];
+          const { data: student, error: studentError } = await supabase
+            .from('users')
+            .select('*')
+            .eq('id', id)
+            .eq('teacher_id', teacherId)
+            .single();
 
-          if (id !== mockStudent.id || (req as any).user.id !== 'mock-teacher-id') {
+          if (studentError || !student) {
             return res.status(404).json({ error: "Student not found or does not belong to this teacher" });
           }
 
-          res.status(200).json({ student: mockStudent, activities: mockActivities });
+          const { data: activities, error: activitiesError } = await supabase
+            .from('student_activities')
+            .select('*')
+            .eq('student_id', id);
+
+          if (activitiesError) {
+            throw activitiesError;
+          }
+
+          res.status(200).json({ student, activities });
           resolve();
         } catch (err: any) {
           console.error("[SERVERLESS] Get Student Details Error:", err);

@@ -4,7 +4,7 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "tsx server.ts",
     "build": "vite build",
     "preview": "vite preview",
     "clean": "rm -rf dist",
@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@google/genai": "^1.29.0",
+    "@supabase/supabase-js": "^2.98.0",
     "@tailwindcss/vite": "^4.1.14",
     "bcryptjs": "^3.0.3",
     "clsx": "^2.1.1",
@@ -30,12 +31,15 @@
   },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",
+    "@types/express": "^5.0.6",
     "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^22.14.0",
     "@vercel/node": "^3.1.5",
     "@vitejs/plugin-react": "^5.1.4",
     "autoprefixer": "^10.4.21",
+    "express": "^5.2.1",
     "tailwindcss": "^4.1.14",
+    "tsx": "^4.21.0",
     "typescript": "~5.8.2"
   }
 }

@@ -1,5 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import jwt from 'jsonwebtoken';
+import { supabase } from '../../src/lib/supabaseClient';
 
 const JWT_SECRET = process.env.JWT_SECRET || "octopus-secret-key-123";
 
@@ -16,20 +17,23 @@ const authenticate = (req: VercelRequest, res: VercelResponse, next: Function) =
   }
 };
 
-// In-memory mock for Problem of the Week storage
-let mockProblemOfTheWeek: { [teacherId: string]: { problem_text: string, updated_at: string } } = {};
-
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   // Wrap with authenticate middleware
   return new Promise<void>(resolve => {
     authenticate(req, res, async () => {
-      const teacherId = (req as any).user.id;
+      const userId = (req as any).user.id;
+      const userRole = (req as any).user.role;
 
       if (req.method === 'POST') {
-        if ((req as any).user.role !== 'teacher') return res.status(403).json({ error: "Forbidden" });
+        if (userRole !== 'teacher') return res.status(403).json({ error: "Forbidden" });
         const { problemText } = req.body;
         try {
-          mockProblemOfTheWeek[teacherId] = { problem_text: problemText, updated_at: new Date().toISOString() };
+          const { error } = await supabase
+            .from('problem_of_the_week')
+            .upsert({ teacher_id: userId, problem_text: problemText, updated_at: new Date().toISOString() }, { onConflict: 'teacher_id' });
+
+          if (error) throw error;
+
           res.status(200).json({ success: true });
           resolve();
         } catch (err: any) {
@@ -39,17 +43,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
       } else if (req.method === 'GET') {
         try {
-          // For students, fetch their teacher's problem
-          const userRole = (req as any).user.role;
-          let targetTeacherId = teacherId;
-
+          let teacherId = userId;
           if (userRole === 'student') {
-            // Mock: assume student has a teacher_id
-            targetTeacherId = (req as any).user.teacherId || 'mock-teacher-id'; 
+            teacherId = (req as any).user.teacherId;
           }
 
-          const problem = mockProblemOfTheWeek[targetTeacherId];
-          res.status(200).json({ problem: problem?.problem_text || null });
+          const { data, error } = await supabase
+            .from('problem_of_the_week')
+            .select('problem_text')
+            .eq('teacher_id', teacherId)
+            .single();
+
+          if (error && error.code !== 'PGRST116') throw error; // Ignore 'not found' error
+
+          res.status(200).json({ problem: data?.problem_text || null });
           resolve();
         } catch (err: any) {
           console.error("[SERVERLESS] Get Problem of the Week Error:", err);

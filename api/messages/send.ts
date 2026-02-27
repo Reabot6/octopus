@@ -1,5 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import jwt from 'jsonwebtoken';
+import { supabase } from '../../src/lib/supabaseClient';
 
 const JWT_SECRET = process.env.JWT_SECRET || "octopus-secret-key-123";
 
@@ -16,18 +17,6 @@ const authenticate = (req: VercelRequest, res: VercelResponse, next: Function) =
   }
 };
 
-// In-memory mock for messages
-interface Message {
-  id: string;
-  sender_id: string;
-  receiver_id: string;
-  content: string;
-  created_at: string;
-  is_read: boolean;
-}
-
-const mockMessages: Message[] = [];
-
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method === 'POST') {
     // Wrap with authenticate middleware
@@ -35,15 +24,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       authenticate(req, res, async () => {
         const { receiverId, content } = req.body;
         try {
-          const newMessage: Message = {
-            id: `msg-${Date.now()}`,
-            sender_id: (req as any).user.id,
-            receiver_id: receiverId,
-            content,
-            created_at: new Date().toISOString(),
-            is_read: false,
-          };
-          mockMessages.push(newMessage);
+          const senderId = (req as any).user.id;
+          const { error } = await supabase
+            .from('messages')
+            .insert([{ sender_id: senderId, receiver_id: receiverId, content }]);
+
+          if (error) throw error;
+
           res.status(200).json({ success: true });
           resolve();
         } catch (err: any) {

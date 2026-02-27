@@ -1,5 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import jwt from 'jsonwebtoken';
+import { supabase } from '../../src/lib/supabaseClient';
 
 const JWT_SECRET = process.env.JWT_SECRET || "octopus-secret-key-123";
 
@@ -23,11 +24,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       authenticate(req, res, async () => {
         if ((req as any).user.role !== 'teacher') return res.status(403).json({ error: "Forbidden" });
         try {
-          // Mock students data
-          const students = [
-            { id: 'student-1', name: 'Alice Smith', email: 'alice@example.com', created_at: '2023-01-15T10:00:00Z' },
-            { id: 'student-2', name: 'Bob Johnson', email: 'bob@example.com', created_at: '2023-02-20T11:30:00Z' },
-          ];
+          const teacherId = (req as any).user.id;
+          const { data: students, error } = await supabase
+            .from('users')
+            .select('id, name, email, created_at')
+            .eq('role', 'student')
+            .eq('teacher_id', teacherId);
+
+          if (error) {
+            throw error;
+          }
+
           res.status(200).json(students);
           resolve();
         } catch (err: any) {

@@ -1,5 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import jwt from 'jsonwebtoken';
+import { supabase } from '../../../src/lib/supabaseClient';
 
 const JWT_SECRET = process.env.JWT_SECRET || "octopus-secret-key-123";
 
@@ -16,19 +17,6 @@ const authenticate = (req: VercelRequest, res: VercelResponse, next: Function) =
   }
 };
 
-// In-memory mock for messages (same as in send.ts for consistency)
-interface Message {
-  id: string;
-  sender_id: string;
-  receiver_id: string;
-  content: string;
-  created_at: string;
-  is_read: boolean;
-}
-
-const mockMessages: Message[] = []; // This will be empty on each function invocation, so it's not truly persistent.
-                                    // For a real serverless app, you'd use a persistent store like a database.
-
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method === 'GET') {
     // Wrap with authenticate middleware
@@ -38,19 +26,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const currentUserId = (req as any).user.id;
 
         try {
-          // Mock fetching messages
-          const messages = mockMessages.filter(
-            msg => (msg.sender_id === currentUserId && msg.receiver_id === otherUserId) ||
-                   (msg.sender_id === otherUserId && msg.receiver_id === currentUserId)
-          ).sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+          const { data: messages, error } = await supabase
+            .from('messages')
+            .select('*')
+            .or(`(sender_id.eq.${currentUserId},and(receiver_id.eq.${otherUserId})),(sender_id.eq.${otherUserId},and(receiver_id.eq.${currentUserId}))`)
+            .order('created_at', { ascending: true });
 
-          // Mock marking as read (only for messages received by current user from other user)
-          messages.forEach(msg => {
-            if (msg.receiver_id === currentUserId && msg.sender_id === otherUserId) {
-              msg.is_read = true;
-            }
-          });
-          
+          if (error) throw error;
+
+          // Mark messages as read
+          const { error: updateError } = await supabase
+            .from('messages')
+            .update({ is_read: true })
+            .eq('receiver_id', currentUserId)
+            .eq('sender_id', otherUserId);
+
+          if (updateError) throw updateError;
+
           res.status(200).json(messages);
           resolve();
         } catch (err: any) {

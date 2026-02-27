@@ -1,6 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
+import { supabase } from '../../src/lib/supabaseClient';
 
 const JWT_SECRET = process.env.JWT_SECRET || "octopus-secret-key-123";
 
@@ -8,37 +9,34 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method === 'POST') {
     const { email, password } = req.body;
 
-    // Simplified logic without Supabase
-    // In a real application, you would integrate with a database here.
-
     if (!email || !password) {
       return res.status(400).json({ error: "Missing required fields" });
     }
 
     try {
-      // Mock user for login (replace with actual database lookup)
-      const mockUser = {
-        id: 'mock-user-id',
-        email: 'test@example.com',
-        password: await bcrypt.hash('password123', 10), // Hashed mock password
-        name: 'Test User',
-        role: 'student',
-        teacher_code: null,
-        teacher_id: 'mock-teacher-id',
-        teacher_name: 'Mock Teacher'
-      };
+      const { data: user, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('email', email)
+        .single();
 
-      if (email !== mockUser.email || !(await bcrypt.compare(password, mockUser.password))) {
-        return res.status(401).json({ error: "Invalid credentials" });
+      if (error || !user) {
+        return res.status(401).json({ error: 'Invalid credentials' });
+      }
+
+      const isPasswordValid = await bcrypt.compare(password, user.password_hash);
+
+      if (!isPasswordValid) {
+        return res.status(401).json({ error: 'Invalid credentials' });
       }
 
       const token = jwt.sign(
         { 
-          id: mockUser.id, 
-          email: mockUser.email, 
-          role: mockUser.role, 
-          name: mockUser.name, 
-          teacherId: mockUser.teacher_id 
+          id: user.id, 
+          email: user.email, 
+          role: user.role, 
+          name: user.name, 
+          teacherId: user.teacher_id 
         },
         JWT_SECRET
       );
@@ -46,13 +44,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       res.status(200).json({
         token,
         user: {
-          id: mockUser.id,
-          email: mockUser.email,
-          name: mockUser.name,
-          role: mockUser.role,
-          teacherCode: mockUser.teacher_code,
-          teacherId: mockUser.teacher_id,
-          teacherName: mockUser.teacher_name
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          role: user.role,
+          teacherId: user.teacher_id,
         }
       });
     } catch (err: any) {
